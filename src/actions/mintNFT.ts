@@ -10,9 +10,9 @@ import {
   MetadataDataData,
 } from '../programs/metadata';
 import { Wallet } from '../wallet';
-import { sendTransaction } from './transactions';
 import { lookup } from '../utils/metadata';
 import { prepareTokenAccountAndMintTx } from './shared';
+import { sendSmartTransaction, sendTransaction } from '.';
 
 interface MintNFTParams {
   connection: Connection;
@@ -28,12 +28,10 @@ interface MintNFTResponse {
   edition: PublicKey;
 }
 
-export const mintNFT = async ({
-  connection,
-  wallet,
-  uri,
-  maxSupply,
-}: MintNFTParams): Promise<MintNFTResponse> => {
+export const mintNFT = async (
+  { connection, wallet, uri, maxSupply }: MintNFTParams,
+  enableSmartTXSender = false,
+): Promise<MintNFTResponse> => {
   const { mint, createMintTx, createAssociatedTokenAccountTx, mintToTx } =
     await prepareTokenAccountAndMintTx(connection, wallet.publicKey);
 
@@ -94,18 +92,31 @@ export const mintNFT = async ({
     },
   );
 
-  const txId = await sendTransaction({
-    connection,
-    signers: [mint],
-    txs: [
-      createMintTx,
-      createMetadataTx,
-      createAssociatedTokenAccountTx,
-      mintToTx,
-      masterEditionTx,
-    ],
-    wallet,
-  });
+  const txId = enableSmartTXSender
+    ? await sendSmartTransaction({
+        connection,
+        signers: [mint],
+        txs: [
+          createMintTx,
+          createMetadataTx,
+          createAssociatedTokenAccountTx,
+          mintToTx,
+          masterEditionTx,
+        ],
+        wallet,
+      })
+    : await sendTransaction({
+        connection,
+        signers: [mint],
+        txs: [
+          createMintTx,
+          createMetadataTx,
+          createAssociatedTokenAccountTx,
+          mintToTx,
+          masterEditionTx,
+        ],
+        wallet,
+      });
 
   return {
     txId,
